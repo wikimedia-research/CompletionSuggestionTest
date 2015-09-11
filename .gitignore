@@ -2,12 +2,10 @@
 .Rhistory
 .Rapp.history
 
-# Example code in package build process
-*-Ex.R
-
 # RStudio files
 .Rproj.user/
 
-# produced vignettes
-vignettes/*.html
-vignettes/*.pdf
+# Private data and code
+*.RData
+private.*
+.Rproj.user
