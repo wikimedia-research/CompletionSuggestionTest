@@ -16,7 +16,7 @@ mysql_read <- function(query, database){
 }
 
 # Fetch data
-data <- mysql_read("SELECT * FROM CompletionSuggestions_13424343", database = "log") # use on stat1002 or stat1003
+data <- mysql_read("SELECT * FROM CompletionSuggestions_13630018", database = "log") # use on stat1002 or stat1003
 
 # Parse UA info
 data_ua <- uaparser::parse_agents(data$userAgent)
@@ -25,34 +25,55 @@ rm(data_ua)
 
 # Perform some data transformations
 data$browser_major <- paste(data$browser, data$browser_major) %>% factor
-data$user_id <- paste(data$clientIp, data$os, data$browser_major, data$wiki, sep = ':') %>%
+data$user_id <- paste(data$event_pageViewToken, data$userAgent, sep = '~') %>%
   factor %>% as.numeric %>% factor
 data$timestamp %<>% lubridate::ymd_hms()
 data$event_bucket %<>% factor
-data$event_logId %<>% factor
-data$event_pageId %<>% factor
+data$event_pageViewToken %<>% factor
 data$device %<>% factor
 data$os %<>% factor
 data$browser %<>% factor
 data$results <- factor(data$event_numResults > 0, c(FALSE, TRUE), c("0", "1+"))
 
-# Check for duplicated events:
-table(table(data$event_logId)) # 2506 of 1s, so we're good
-
 # Throw away columns we don't need
-data <- data[, c('timestamp', 'wiki', 'user_id', 'event_bucket',
-                 'event_numResults', 'results','event_pageId',
+data <- data[order(data$user_id, data$timestamp), ]
+data <- data[, c('timestamp', 'user_id', 'wiki', 'event_bucket',
+                 'event_numResults', 'results',
                  'device', 'os', 'browser', 'browser_major')]
-data <- data[order(data$user_id, data$event_pageId, data$timestamp), ]
 
-users <- unique(data[, c('user_id', 'wiki', 'event_bucket', 'device', 'os', 'browser', 'browser_major')])
-dual_citizens <- 
-events <- data[, c('timestamp', 'user_id', 'wiki', 'event_numResults', 'results', 'event_pageId')]
-
-data <- data[!duplicated(data[, c('user_id', 'event_numResults', 'event_pageId')]), ]
 
 # Save data
-save(list = 'data', file = '~/CompletionSuggestionTest_2015-09-10/Initial.RData')
+save(list = c('data'), file = '~/CompletionSuggestionTest_2015-09-18/Initial.RData')
 
 ## Download the data
-# scp stat3:/home/bearloga/CompletionSuggestionTest_2015-09-10/Initial.RData ~/Documents/Projects/CompletionSuggestionTest/data_validation/
+# scp stat3:/home/bearloga/CompletionSuggestionTest_2015-09-18/Initial.RData ~/Documents/Projects/CompletionSuggestionTest/data_validation/
+
+## Locally:
+library(magrittr)
+library(tidyr)
+import::from(dplyr, select, mutate, rename, arrange, group_by, summarize, keep_where = filter)
+
+
+load("data_validation/Initial.RData")
+
+source("~/Documents/Projects/UserSatisfaction/T112269_survanalysis/utils.R")
+data <- cbind(data, parse_wiki(data$wiki))
+data$wiki <- paste(ifelse(is.na(data$language), "", paste0(data$language, " ")),
+                   data$project, sep = "") %>% factor
+rm(prefixes, parse_wiki, get_data)
+
+users <- unique(data[, c('user_id', 'event_bucket', 'device', 'os', 'browser', 'browser_major', 'wiki', 'project', 'language')])
+events <- data[, c('timestamp', 'user_id', 'event_numResults', 'results')]
+rm(data)
+
+users <- events %>%
+  group_by(user_id) %>%
+  summarize(`any nonzero` = any(event_numResults > 0),
+            `any zero` = any(event_numResults == 0),
+            `last event's results` = tail(event_numResults, 1) > 0) %>%
+  mutate(`any nonzero` = factor(`any nonzero`, c(TRUE, FALSE), c("Yes", "No"))) %>%
+  mutate(`any zero` = factor(`any zero`, c(TRUE, FALSE), c("Yes", "No"))) %>%
+  mutate(`last event's results` = factor(`last event's results`, c(TRUE, FALSE), c("1+", "0"))) %>%
+  dplyr::left_join(users, ., by = "user_id")
+
+save(list = c('users', 'events'), file = 'data_validation/Processed.RData')
