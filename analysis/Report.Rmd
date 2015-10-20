@@ -1,0 +1,8 @@
+---
+title: "Completion Suggester"
+author: "Mikhail Popov"
+date: "October 19, 2015"
+output: html_document
+---
+
+on every page load we do a 1 in 10000 check and if passed for that one page view you get the new suggester
