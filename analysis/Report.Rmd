@@ -1,8 +1,238 @@
 ---
-title: "Completion Suggester"
-author: "Mikhail Popov"
-date: "October 19, 2015"
-output: html_document
+output:
+  html_document:
+    css: Report.css
+    fig_width: 10
+    includes:
+      before_body: Summary.html
+    keep_md: yes
+    toc: yes
 ---
 
-on every page load we do a 1 in 10000 check and if passed for that one page view you get the new suggester
+```{r setup, include = FALSE}
+library(magrittr)
+library(tidyr)
+import::from(dplyr, select, mutate, rename, arrange, group_by, summarize, keep_where = filter)
+library(ggplot2)
+library(wmf)
+library(BCDA)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+# setwd('analysis')
+source('Utils.R')
+load('../Processed_20151019.RData')
+theme_noBG <- function(x) {
+  x + theme(rect = element_blank())
+}
+```
+
+## Introduction
+
+The **completion suggester** is meant to replace prefix searching, with the aim of increasing recall. Completion suggester benefits include: less typos suggested (e.g. if the redirect is close to the canonical title we will display the canonical title), fuzzy searching, and ignoring stop words. The drawbacks of completion suggester are: precision is sometimes very bad because the scoring formula is not well designed for some kind of pages, fuzzy searching can display weird results, and page titles with punctuation or special characters only are not searchable.
+
+## Methods
+
+### Data
+
+On every page load we do a 1 in 10,000 check, and if passed for that one page view then the user gets entered into the test as a control. If the check failed, we do another draw (1 in 9,999) for entering the user into the test as a test subject, with the completion suggester instead of prefix searching.
+
+### Analysis
+
+We performed the analysis using Bayesian methods for categorical data in the software R using packages and code by Albert (2014), Overstall and King (2014), and Agresti and Min (2005).
+
+## Results
+
+### Data validation
+
+```{r bucketing_differences, fig.width = 15, fig.height = 5}
+ggprops(users, 'browser_major', 'Browser') +
+  ggtitle("Differences in bucketing across top 10 browsers") +
+  theme(rect = element_blank())
+ggprops(users, 'browser', 'Browser', 5) +
+  ggtitle("Differences in bucketing across top 10 browsers") +
+  theme(rect = element_blank())
+```
+
+### Overall results
+
+```{r overall, fig.width = 8, fig.height = 6}
+outcomes %>%
+  group_by(event_bucket, outcome) %>%
+  summarize(n = sum(n)) %>%
+  group_by(event_bucket) %>%
+  mutate(prop = n/sum(n)) %>%
+  ggplot(data = ., aes(x = event_bucket, y = prop, fill = outcome)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_y_continuous(name = "Proportion of outcome within method",
+                     labels = scales::percent_format()) +
+  geom_text(aes(label = sprintf("%.0f (%.0f%%)", n, 100*prop),
+                y = prop + 0.05),
+            position = position_dodge(width = 1)) +
+  scale_x_discrete(name = "Search Method") +
+  ggtitle("Outcomes throughout a search session") +
+  wmf::theme_fivethirtynine() + theme(rect = element_blank())
+```
+
+```{r last_event, fig.width = 8, fig.height = 6}
+outcomes %>%
+  group_by(event_bucket, `last event's results`) %>%
+  summarize(n = sum(n)) %>%
+  group_by(`last event's results`) %>%
+  mutate(prop = n/sum(n)) %>%
+  ggplot(data = ., aes(x = `last event's results`, y = prop, fill = event_bucket)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_y_continuous(name = "Proportion", labels = scales::percent_format()) +
+  geom_text(aes(label = sprintf("%.0f (%.1f%%)", n, 100*prop), y = prop + 0.03),
+            position = position_dodge(width = 1)) +
+  ggtitle("Final outcome for sessions") +
+  wmf::theme_fivethirtynine() + theme(rect = element_blank())
+```
+
+```{r last_event_bcda, eval = FALSE, include = FALSE}
+outcomes %>%
+  group_by(event_bucket, `last event's results`) %>%
+  summarize(n = sum(n)) %>%
+  tidyr::spread(`last event's results`, n) %>%
+  df_to_tbl %>%
+  bcda_battery %>%
+  format_bcda_battery
+```
+
+|                                       |Value          |Comment                          |
+|:--------------------------------------|:--------------|:--------------------------------|
+|Bayes Factor                           |**VERY** large.|Very strong evidence against hypothesis of independence. |
+|95% C.I. for Difference of Proportions |(0.064, 0.091) |Probability of getting nonzero results goes up by 6.4%-9.1% in the suggester group.|
+|95% C.I. for Relative Risk             |(1.082, 1.120) |Suggester group is 1.1-1.2 times more likely to get nonzero results!|
+|95% C.I. for Odds Ratio                |(1.531, 1.846) |Odds of suggester group getting nonzero results are 1.5-1.8 times those of controls!|
+
+### Some zero and some nonzero results
+
+```{r searches_within_outcome_some, fig.width = 12, fig.height = 6}
+outcomes %>%
+  keep_where(outcome == 'some zero & nonzero results') %>%
+  group_by(event_bucket, `last event's results`) %>%
+  summarize(n = sum(n)) %>%
+  group_by(`last event's results`) %>%
+  mutate(prop = n/sum(n)) %>%
+  ggplot(data = ., aes(x = `last event's results`, y = prop, fill = event_bucket)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_y_continuous(name = "Proportion", labels = scales::percent_format()) +
+  geom_text(aes(label = sprintf("%.0f searches (%.1f%%)", n, 100*prop), y = prop + 0.03),
+            position = position_dodge(width = 1)) +
+  ggtitle("Final outcome for sessions with zero and nonzero results throughout the search session") +
+  wmf::theme_fivethirtynine() + theme(rect = element_blank())
+```
+
+```{r some_zero_some_nonzero, eval = FALSE, include = FALSE}
+outcomes %>%
+  keep_where(outcome == 'some zero & nonzero results') %>%
+  group_by(event_bucket, `last event's results`) %>%
+  summarize(n = sum(n)) %>%
+  tidyr::spread(`last event's results`, n) %>%
+  df_to_tbl %>%
+  bcda_battery %>%
+  format_bcda_battery
+```
+
+|                                       |Value            |Comment                          |
+|:--------------------------------------|:----------------|:--------------------------------|
+|Bayes Factor                           |**VERY** large.  |Very strong evidence against H0. |
+|95% C.I. for Difference of Proportions |(-0.157, -0.082) |                                 |
+|95% C.I. for Relative Risk             |(0.505, 0.717)   |                                 |
+|95% C.I. for Odds Ratio                |(0.411, 0.642)   |                                 |
+
+### All zero results or all nonzero results
+
+```{r searches_within_outcome_all, fig.width = 8, fig.height = 4}
+outcomes %>%
+  keep_where(outcome != 'some zero & nonzero results') %>%
+  group_by(outcome, event_bucket) %>%
+  summarize(n = sum(n)) %>%
+  group_by(outcome) %>%
+  mutate(prop = n/sum(n)) %>%
+  ggplot(data = ., aes(x = outcome, y = prop, fill = event_bucket)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_y_continuous(name = "Proportion of sessions", labels = scales::percent_format()) +
+  geom_text(aes(y = prop + 0.025, label = sprintf("%.0f (%.1f%%)", n, 100*prop)),
+            position = position_dodge(width = 1)) +
+  ggtitle("Search sessions within outcome") +
+  wmf::theme_fivethirtynine() + theme(rect = element_blank())
+```
+
+```{r all_or_nothing, eval = FALSE, include = FALSE}
+outcomes %>%
+  keep_where(outcome != 'some zero & nonzero results') %>%
+  group_by(event_bucket, outcome) %>%
+  summarize(n = sum(n)) %>%
+  tidyr::spread(outcome, n) %>%
+  df_to_tbl %>%
+  bcda_battery %>%
+  format_bcda_battery
+```
+
+|                                       |Value          |Comment                          |
+|:--------------------------------------|:--------------|:--------------------------------|
+|Bayes Factor                           |**VERY** large.|Very strong evidence against H0. |
+|95% C.I. for Difference of Proportions |(0.017, 0.038) |                                 |
+|95% C.I. for Relative Risk             |(1.019, 1.042) |                                 |
+|95% C.I. for Odds Ratio                |(1.298, 1.769) | 
+
+### German Wikipedia vs English Wikipedia
+
+So far we have looked at the results pooled across the two populations of users. In this section, we look at the outcomes for German Wikipedia and English Wikipedia users separately.
+
+```{r bucketing_differences_wiki, fig.width = 5, fig.height = 4}
+ggprops(users, 'wiki', 'wiki') +
+  ggtitle("Differences in bucketing")
+```
+
+#### German Wikipedia
+
+```{r bcda_battery_dewiki, eval = FALSE, include = FALSE}
+outcomes %>%
+  keep_where(wiki == 'German Wikipedia') %>%
+  group_by(event_bucket, `last event's results`) %>%
+  summarize(n = sum(n)) %>%
+  tidyr::spread(`last event's results`, n) %>%
+  df_to_tbl %>%
+  bcda_battery %>%
+  format_bcda_battery
+```
+
+|                                       |Value          |Comment                          |
+|:--------------------------------------|:--------------|:--------------------------------|
+|Bayes Factor                           |**VERY** large.|Very strong evidence against H0. |
+|95% C.I. for Difference of Proportions |(0.063, 0.118) |                                 |
+|95% C.I. for Relative Risk             |(1.081, 1.158) |                                 |
+|95% C.I. for Odds Ratio                |(1.516, 2.204) |                                 |
+
+#### English Wikipedia
+
+```{r bcda_battery_enwiki, eval = FALSE, include = FALSE}
+outcomes %>%
+  keep_where(wiki == 'English Wikipedia') %>%
+  group_by(event_bucket, `last event's results`) %>%
+  summarize(n = sum(n)) %>%
+  tidyr::spread(`last event's results`, n) %>%
+  df_to_tbl %>%
+  bcda_battery %>%
+  format_bcda_battery
+```
+
+|                                       |Value          |Comment                          |
+|:--------------------------------------|:--------------|:--------------------------------|
+|Bayes Factor                           |**VERY** large.|Very strong evidence against H0. |
+|95% C.I. for Difference of Proportions |(0.058, 0.090) |                                 |
+|95% C.I. for Relative Risk             |(1.074, 1.117) |                                 |
+|95% C.I. for Odds Ratio                |(1.466, 1.820) |                                 |
+
+## Discussion
+
+## References
+
+Albert, J. (2009, 2014). Bayesian Computation with R. Springer Science & Business Media. http://doi.org/10.1007/978-0-387-92298-0 Accompanying R package: *LearnBayes: Functions for Learning Bayesian Inference* (Version 2.15). URL http://CRAN.R-project.org/package=LearnBayes
+
+Overstall, A. M. and King, R. (2014). conting: An R Package for Bayesian Analysis of Complete and Incomplete Contingency Tables. *Journal of Statistical Software*, **58**(7), 1-27. URL http://www.jstatsoft.org/v58/i07/
+
+Agresti, A., & Min, Y. (2005). Frequentist performance of Bayesian confidence intervals for comparing proportions in 2 x 2 contingency tables. *Biometrics*, **61**(2), 515–523. http://doi.org/10.1111/j.1541-0420.2005.031228.x URL http://www.stat.ufl.edu/~aa/cda/R/bayes/bayes.html
+
+R Core Team (2015). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.

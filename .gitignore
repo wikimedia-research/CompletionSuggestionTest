@@ -9,3 +9,5 @@
 *.RData
 private.*
 .Rproj.user
+
+*.html

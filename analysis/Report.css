@@ -1,0 +1,13 @@
+#summary li {
+  margin: 0;
+  line-height: 22px;
+}
+
+dt {
+  float: left;
+  clear: left;
+  width: 150px;
+}
+dd {
+  color: DimGray;
+}
