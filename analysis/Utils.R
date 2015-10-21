@@ -39,14 +39,14 @@ bcda_battery <- function(x) {
   # Runs the full battery of BCDA tools
   return(list(Probabilities = BCDA::est_multinom(x),
               `Test of Independence` = BCDA::test_indepen(x),
-              `Difference of Proportions` = BCDA::ci_prop_diff_tail(x),
+              `Difference` = BCDA::ci_prop_diff_tail(x),
               `Relative Risk` = BCDA::ci_relative_risk(x),
               `Odds Ratio` = BCDA::ci_odds_ratio(x)))
 }
 
 format_bcda_battery <- function(x, comments = rep('', 3)) {
   format_ci <- function(ci) {
-    sprintf("(%.3f, %.3f)", ci[1], ci[2])
+    sprintf("(%.3f,&nbsp;%.3f)", ci[1], ci[2])
   }
   temp <- data.frame(Value = apply(as.data.frame(x[3:5]), 2, format_ci),
                      stringsAsFactors = FALSE)
@@ -54,4 +54,14 @@ format_bcda_battery <- function(x, comments = rep('', 3)) {
   rownames(temp) <- c('Bayes Factor', paste("95% C.I. for", names(x)[3:5]))
   temp$Comment = c(x[[2]]$Interpretation, comments)
   return(knitr::kable(temp))
+}
+
+format_table <- function(x, units = "") {
+  if ( all(x <= 1) ) {
+    y <- as.table(matrix(sprintf("%.2f%%", 100*addmargins(x)), nrow = nrow(x)+1, ncol = ncol(x)+1))
+  } else {
+    y <- as.table(matrix(sprintf("%.0f (%.1f%%)", addmargins(x), 100*addmargins(BCDA::est_multinom(x))), nrow = nrow(x)+1, ncol = ncol(x)+1))
+  }
+  dimnames(y) <- lapply(dimnames(x), . %>% c(., "sum"))
+  return(y)
 }
