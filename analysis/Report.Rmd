@@ -19,7 +19,7 @@ load('../Processed_20151019.RData')
 
 ## Introduction
 
-The **completion suggester** is meant to replace prefix searching, with the aim of increasing recall. Completion suggester benefits include: less typos suggested (e.g. if the redirect is close to the canonical title we will display the canonical title), fuzzy searching, and ignoring stop words. The drawbacks of completion suggester are: precision is sometimes very bad because the scoring formula is not well designed for some kind of pages, fuzzy searching can display weird results, and page titles with punctuation or special characters only are not searchable.
+The **completion suggester** is meant to replace prefix searching, with the aim of increasing recall. Completion suggester benefits include: less typos suggested (e.g. if the redirect is close to the canonical title we will display the canonical title), fuzzy searching, and ignoring stop words. The drawbacks of completion suggester are: precision is sometimes very bad because the scoring formula is not well designed for some kinds of pages, fuzzy searching can display weird results, and page titles with punctuation or special characters only are not searchable.
 
 ## Methods
 
@@ -29,7 +29,7 @@ On every page load we do a 1 in 10,000 check, and if passed for that one page vi
 
 ### Analysis
 
-We performed the analysis using Bayesian methods for categorical data in the software R using packages and code by Agresti and Min (2005) and Albert (2014). To obtain the posterior multionomial cell probabilities, we implemented the methods of Fienberg and Holland (1973) in a package which we are working on making available.
+We performed the analysis using Bayesian methods for categorical data in the language and environment R, using packages and code by Agresti & Min (2005) and Albert (2014). To obtain the posterior multionomial cell probabilities, we implemented the methods of Fienberg and Holland (1973) in a package which we are working on making available.
 
 ## Results
 
@@ -150,7 +150,7 @@ temp %>% format_table
 
 ## Discussion
 
-Based on the evidence presented, it is our strong recommendation that we switch to the new method of search.
+We can see that users have a greater outcome of getting results. This does not equate to a better outcome. The new approach may increase the number of results, for example, while also decreasing the quality of those results. Based on the evidence presented, we recommend looking at clickthrough rates as a basic satisfaction heuristic before we recommend moving forward with the completion suggester.
 
 ## References
 
