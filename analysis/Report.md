@@ -156,7 +156,7 @@ So far we have looked at the results pooled across the two populations of users.
 
 ## Discussion
 
-We can see that users have a greater outcome of getting results. This does not equate to a better outcome. The new approach may increase the number of results, for example, while also decreasing the quality of those results. Based on the evidence presented, we recommend looking at clickthrough rates as a basic satisfaction heuristic before we recommend moving forward with the completion suggester.
+We can see that users have a greater outcome of getting results. This does not necessarily equate to a better outcome. The new approach may increase the number of results, for example, while also decreasing the quality of those results. Based on the evidence presented, we recommend looking at clickthrough rates as a basic satisfaction heuristic before we recommend moving forward with the completion suggester.
 
 ## References
 
