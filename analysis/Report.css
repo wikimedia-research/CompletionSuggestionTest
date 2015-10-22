@@ -11,3 +11,24 @@ dt {
 dd {
   color: DimGray;
 }
+
+table:not(.contingency) tr:nth-child(odd) {
+  background-color: white;
+}
+table:not(.contingency) tr:nth-child(even) {
+  background-color: gainsboro;
+}
+
+.contingency tr:last-child, .contingency tr td:last-child {
+  background-color: gainsboro;
+}
+
+.contingency td {
+  border: 1px solid black;
+}
+
+th, tr td:first-child {
+  background-color: #333;
+  color: white;
+  font-weight: normal;
+}

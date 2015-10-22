@@ -9,9 +9,7 @@ The **completion suggester** is meant to replace prefix searching, with the aim 
 
 ### Data
 
-On every page load we do a 1 in 10,000 check, and if passed for that one page view then the user gets entered into the test as a control. If the check failed, we do another draw (1 in 9,999) for entering the user into the test as a test subject, with the completion suggester instead of prefix searching.
-
-The events were logged using the [Completion Suggestions](https://meta.wikimedia.org/wiki/Schema:CompletionSuggestions) schema.
+On every page load we do a 1 in 10,000 check, and if passed for that one page view then the user gets entered into the test as a control. If the check failed, we do another draw (1 in 9,999) for entering the user into the test as a test subject, with the completion suggester instead of prefix searching. The events were logged using the [Completion Suggestions](https://meta.wikimedia.org/wiki/Schema:CompletionSuggestions) schema.
 
 ### Analysis
 
@@ -19,22 +17,49 @@ We performed the analysis using Bayesian methods for categorical data in the sof
 
 ## Results
 
-### Data Validation
+<!-- ### Data Validation -->
 
-![](Report_files/figure-html/bucketing_differences-1.png) ![](Report_files/figure-html/bucketing_differences-2.png) 
 
-### Final Outcome
+As the user is typing their query, they are interacting with the database. This means that we log multiple events throughout a single search session. There are three possible outcomes: all of the events were nonzero results, all of the events were zero results, or a combination of the two. That is, the user may have started typing and nothing was found at first but they kept typing and that's when we started retrieving articles that matched their query.
 
 ![](Report_files/figure-html/overall-1.png) 
 
+A greater percentage of users in the test group had a 'nonzero results only' outcome than in the control group (83% in test vs 70% in control).
+
 ![](Report_files/figure-html/last_event-1.png) 
 
+When we look at what truly matters (the final outcome of the search session), we see that 85.1% of the searches in the test group ended in nonzero results, compared to the 77.3% of the searches in the control group -- a 7.8% difference!
 
-                 last event: nonzero result   last event: zero results   sum            
----------------  ---------------------------  -------------------------  ---------------
-cirrus-suggest   4911 (40.9%)                 857 (7.1%)                 5768 (48.0%)   
-opensearch       4834 (40.2%)                 1418 (11.8%)               6252 (52.0%)   
-sum              9745 (81.1%)                 2275 (18.9%)               12020 (100.0%) 
+<table class='table table-condensed contingency' >
+ <thead>
+  <tr>
+   <th style="text-align:left;">   </th>
+   <th style="text-align:right;"> last event: nonzero result </th>
+   <th style="text-align:right;"> last event: zero results </th>
+   <th style="text-align:right;"> sum </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> cirrus-suggest </td>
+   <td style="text-align:right;"> 4911 (40.9%) </td>
+   <td style="text-align:right;"> 857 (7.1%) </td>
+   <td style="text-align:right;"> 5768 (48.0%) </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> opensearch </td>
+   <td style="text-align:right;"> 4834 (40.2%) </td>
+   <td style="text-align:right;"> 1418 (11.8%) </td>
+   <td style="text-align:right;"> 6252 (52.0%) </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> sum </td>
+   <td style="text-align:right;"> 9745 (81.1%) </td>
+   <td style="text-align:right;"> 2275 (18.9%) </td>
+   <td style="text-align:right;"> 12020 (100.0%) </td>
+  </tr>
+</tbody>
+</table>
 
 |&nbsp;                     |&nbsp;              |Comment                          |
 |:--------------------------|:-------------------|:--------------------------------|
@@ -42,44 +67,6 @@ sum              9745 (81.1%)                 2275 (18.9%)               12020 (
 |95% C.I. for Difference    |(0.064,&nbsp;0.091) |Probability of getting nonzero results goes up by 6.4%-9.1% in the suggester group.|
 |95% C.I. for Relative Risk |(1.082,&nbsp;1.120) |Suggester group is 1.1-1.2 times more likely to get nonzero results!|
 |95% C.I. for Odds Ratio    |(1.531,&nbsp;1.846) |Odds of suggester group getting nonzero results are 1.5-1.8 times those of controls!|
-
-### Zero and Nonzero Results Throughout Search Session
-
-![](Report_files/figure-html/searches_within_outcome_some-1.png) 
-
-
-                 last event: nonzero result   last event: zero results   sum           
----------------  ---------------------------  -------------------------  --------------
-opensearch       440 (20.6%)                  1006 (47.1%)               1446 (67.8%)  
-cirrus-suggest   126 (5.9%)                   561 (26.3%)                687 (32.2%)   
-sum              566 (26.6%)                  1567 (73.4%)               2133 (100.0%) 
-
-Within the search sessions that had both zero results and nonzero results throughout the search session as the user was typing their query:
-
-|&nbsp;                     |&nbsp;              |Comment                          |
-|:--------------------------|:-------------------|:--------------------------------|
-|Bayes Factor               |**VERY** large.|Very strong evidence against hypothesis of independence. |
-|95% C.I. for Difference    |(0.082,&nbsp;0.157) |Probability of ending up with nonzero results goes up by 8.2%-15.7% in the controls.|
-|95% C.I. for Relative Risk |(1.394,&nbsp;1.981) |Control group is 1.4-2.0 times more likely to end up with nonzero results.|
-|95% C.I. for Odds Ratio    |(1.557,&nbsp;2.433) |Odds of controls ending up with nonzero results are 1.6-2.4 times those with suggester.|
-
-### Whole Session (All-Nonzero vs All-Zero Results)
-
-![](Report_files/figure-html/searches_within_outcome_all-1.png) 
-
-
-                 nonzero results only   zero results only   sum           
----------------  ---------------------  ------------------  --------------
-cirrus-suggest   4785 (48.4%)           296 (3.0%)          5081 (51.4%)  
-opensearch       4394 (44.4%)           412 (4.2%)          4806 (48.6%)  
-sum              9179 (92.8%)           708 (7.2%)          9887 (100.0%) 
-
-|&nbsp;                     |&nbsp;              |Comment                          |
-|:--------------------------|:-------------------|:--------------------------------|
-|Bayes Factor               |**VERY** large.|Very strong evidence against hypothesis of independence. |
-|95% C.I. for Difference    |(0.017,&nbsp;0.038) |Probability of having an all-nonzero-results search session goes up by 2%-4% in the suggester group.|
-|95% C.I. for Relative Risk |(1.019,&nbsp;1.042) |Suggester group is 1.02-1.04 is times more likely to have all-nonzero-results session.|
-|95% C.I. for Odds Ratio    |(1.298,&nbsp;1.769) |Odds of suggester having an all-nonzero-results session are 1.3-1.8 times those of controls.|
 
 ### German Wikipedia vs English Wikipedia
 
@@ -89,14 +76,36 @@ So far we have looked at the results pooled across the two populations of users.
 
 #### German Wikipedia
 
-##### Final Outcome
-
-
-                 last event: nonzero result   last event: zero results   sum           
----------------  ---------------------------  -------------------------  --------------
-cirrus-suggest   1225 (40.1%)                 205 (6.8%)                 1430 (46.9%)  
-opensearch       1242 (40.7%)                 380 (12.4%)                1622 (53.1%)  
-sum              2467 (80.8%)                 585 (19.2%)                3052 (100.0%) 
+<table class='table table-condensed contingency' >
+ <thead>
+  <tr>
+   <th style="text-align:left;">   </th>
+   <th style="text-align:right;"> last event: nonzero result </th>
+   <th style="text-align:right;"> last event: zero results </th>
+   <th style="text-align:right;"> sum </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> cirrus-suggest </td>
+   <td style="text-align:right;"> 1225 (40.1%) </td>
+   <td style="text-align:right;"> 205 (6.8%) </td>
+   <td style="text-align:right;"> 1430 (46.9%) </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> opensearch </td>
+   <td style="text-align:right;"> 1242 (40.7%) </td>
+   <td style="text-align:right;"> 380 (12.4%) </td>
+   <td style="text-align:right;"> 1622 (53.1%) </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> sum </td>
+   <td style="text-align:right;"> 2467 (80.8%) </td>
+   <td style="text-align:right;"> 585 (19.2%) </td>
+   <td style="text-align:right;"> 3052 (100.0%) </td>
+  </tr>
+</tbody>
+</table>
 
 |&nbsp;                     |&nbsp;              |Comment                          |
 |:--------------------------|:-------------------|:--------------------------------|
@@ -105,32 +114,38 @@ sum              2467 (80.8%)                 585 (19.2%)                3052 (1
 |95% C.I. for Relative Risk |(1.081,&nbsp;1.158) |The *dewiki* test group is 1.1-1.2 times more likely to get nonzero results than controls.|
 |95% C.I. for Odds Ratio    |(1.516,&nbsp;2.204) |Odds of *dewiki* test group getting nonzero results are 1.5-2.2 times those of controls.|
 
-##### Whole Session
-
-
-                 nonzero results only   zero results only   sum           
----------------  ---------------------  ------------------  --------------
-cirrus-suggest   1188 (47.3%)           64 (2.6%)           1252 (49.8%)  
-opensearch       1154 (45.9%)           107 (4.3%)          1261 (50.2%)  
-sum              2342 (93.2%)           171 (6.8%)          2513 (100.0%) 
-
-|&nbsp;                     |&nbsp;              |Comment                          |
-|:--------------------------|:-------------------|:--------------------------------|
-|Bayes Factor               |10.878         |Positive evidence against hypothesis of independence. |
-|95% C.I. for Difference    |(0.014,&nbsp;0.054) |Probability of having an all-nonzero-results search session goes up by 1.4%-5.4% in the *dewiki* test group.|
-|95% C.I. for Relative Risk |(1.015,&nbsp;1.059) |The *dewiki* test group is 1.02-1.06 is times more likely to have all-nonzero-results session.|
-|95% C.I. for Odds Ratio    |(1.250,&nbsp;2.367) |Odds of *dewiki* test group having an all-nonzero-results session are 1.3-2.4 times those of controls.|
-
 #### English Wikipedia
 
-##### Final Outcome
-
-
-                 last event: nonzero result   last event: zero results   sum           
----------------  ---------------------------  -------------------------  --------------
-cirrus-suggest   3686 (41.1%)                 652 (7.3%)                 4338 (48.4%)  
-opensearch       3592 (40.0%)                 1038 (11.6%)               4630 (51.6%)  
-sum              7278 (81.1%)                 1690 (18.9%)               8968 (100.0%) 
+<table class='table table-condensed contingency' >
+ <thead>
+  <tr>
+   <th style="text-align:left;">   </th>
+   <th style="text-align:right;"> last event: nonzero result </th>
+   <th style="text-align:right;"> last event: zero results </th>
+   <th style="text-align:right;"> sum </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;"> cirrus-suggest </td>
+   <td style="text-align:right;"> 3686 (41.1%) </td>
+   <td style="text-align:right;"> 652 (7.3%) </td>
+   <td style="text-align:right;"> 4338 (48.4%) </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> opensearch </td>
+   <td style="text-align:right;"> 3592 (40.0%) </td>
+   <td style="text-align:right;"> 1038 (11.6%) </td>
+   <td style="text-align:right;"> 4630 (51.6%) </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;"> sum </td>
+   <td style="text-align:right;"> 7278 (81.1%) </td>
+   <td style="text-align:right;"> 1690 (18.9%) </td>
+   <td style="text-align:right;"> 8968 (100.0%) </td>
+  </tr>
+</tbody>
+</table>
 
 |&nbsp;                     |&nbsp;              |Comment                          |
 |:--------------------------|:-------------------|:--------------------------------|
@@ -139,23 +154,9 @@ sum              7278 (81.1%)                 1690 (18.9%)               8968 (1
 |95% C.I. for Relative Risk |(1.074,&nbsp;1.117) |The *enwiki* test group is 1.07-1.12 times more likely to get nonzero results than controls.|
 |95% C.I. for Odds Ratio    |(1.466,&nbsp;1.820) |Odds of *enwiki* test group getting nonzero results are 1.5-1.8 times those of controls.|
 
-##### Whole Session
-
-
-                 nonzero results only   zero results only   sum           
----------------  ---------------------  ------------------  --------------
-cirrus-suggest   3597 (48.8%)           232 (3.2%)          3829 (51.9%)  
-opensearch       3240 (43.9%)           305 (4.1%)          3545 (48.1%)  
-sum              6837 (92.7%)           537 (7.3%)          7374 (100.0%) 
-
-|&nbsp;                     |&nbsp;              |Comment                          |
-|:--------------------------|:-------------------|:--------------------------------|
-|Bayes Factor               |154.272        |Very strong evidence against hypothesis of independence. |
-|95% C.I. for Difference    |(0.014,&nbsp;0.037) |Probability of having an all-nonzero-results search session goes up by 1.4%-3.7% in the *enwiki* test group.|
-|95% C.I. for Relative Risk |(1.015,&nbsp;1.041) |The *enwiki* test group is 1.02-1.04 is times more likely to have all-nonzero-results session.|
-|95% C.I. for Odds Ratio    |(1.223,&nbsp;1.742) |Odds of *enwiki* test group having an all-nonzero-results session are 1.22-1.74 times those of controls.|
-
 ## Discussion
+
+Based on the evidence presented, it is our strong recommendation that we switch to the new method of search.
 
 ## References
 

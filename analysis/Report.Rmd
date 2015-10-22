@@ -7,22 +7,14 @@ output:
       before_body: Summary.html
     keep_md: yes
     toc: yes
+    toc_depth: 4
 ---
 
 ```{r setup, include = FALSE}
-library(magrittr)
-library(tidyr)
-import::from(dplyr, select, mutate, rename, arrange, group_by, summarize, keep_where = filter)
-library(ggplot2)
-library(wmf)
-library(BCDA)
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 # setwd('analysis')
 source('Utils.R')
 load('../Processed_20151019.RData')
-theme_noBG <- function(x) {
-  x + theme(rect = element_blank())
-}
 ```
 
 ## Introduction
@@ -33,9 +25,7 @@ The **completion suggester** is meant to replace prefix searching, with the aim 
 
 ### Data
 
-On every page load we do a 1 in 10,000 check, and if passed for that one page view then the user gets entered into the test as a control. If the check failed, we do another draw (1 in 9,999) for entering the user into the test as a test subject, with the completion suggester instead of prefix searching.
-
-The events were logged using the [Completion Suggestions](https://meta.wikimedia.org/wiki/Schema:CompletionSuggestions) schema.
+On every page load we do a 1 in 10,000 check, and if passed for that one page view then the user gets entered into the test as a control. If the check failed, we do another draw (1 in 9,999) for entering the user into the test as a test subject, with the completion suggester instead of prefix searching. The events were logged using the [Completion Suggestions](https://meta.wikimedia.org/wiki/Schema:CompletionSuggestions) schema.
 
 ### Analysis
 
@@ -43,9 +33,8 @@ We performed the analysis using Bayesian methods for categorical data in the sof
 
 ## Results
 
-### Data Validation
-
-```{r bucketing_differences, fig.width = 15, fig.height = 5}
+<!-- ### Data Validation -->
+```{r bucketing_differences, fig.width = 15, fig.height = 5, eval = FALSE}
 ggprops(users, 'browser_major', 'Browser') +
   ggtitle("Differences in bucketing across top 10 browsers") +
   theme(rect = element_blank())
@@ -54,7 +43,7 @@ ggprops(users, 'browser', 'Browser', 5) +
   theme(rect = element_blank())
 ```
 
-### Final Outcome
+As the user is typing their query, they are interacting with the database. This means that we log multiple events throughout a single search session. There are three possible outcomes: all of the events were nonzero results, all of the events were zero results, or a combination of the two. That is, the user may have started typing and nothing was found at first but they kept typing and that's when we started retrieving articles that matched their query.
 
 ```{r overall, fig.width = 8, fig.height = 6}
 outcomes %>%
@@ -74,11 +63,13 @@ outcomes %>%
   wmf::theme_fivethirtynine() + theme(rect = element_blank())
 ```
 
+A greater percentage of users in the test group had a 'nonzero results only' outcome than in the control group (83% in test vs 70% in control).
+
 ```{r last_event, fig.width = 8, fig.height = 6}
 outcomes %>%
   group_by(event_bucket, `last event's results`) %>%
   summarize(n = sum(n)) %>%
-  group_by(`last event's results`) %>%
+  group_by(event_bucket) %>%
   mutate(prop = n/sum(n)) %>%
   ggplot(data = ., aes(x = `last event's results`, y = prop, fill = event_bucket)) +
   geom_bar(stat = "identity", position = "dodge") +
@@ -89,13 +80,15 @@ outcomes %>%
   wmf::theme_fivethirtynine() + theme(rect = element_blank())
 ```
 
-```{r last_event_bcda, as.is = TRUE}
+When we look at what truly matters (the final outcome of the search session), we see that 85.1% of the searches in the test group ended in nonzero results, compared to the 77.3% of the searches in the control group -- a 7.8% difference!
+
+```{r last_event_bcda, results = 'asis'}
 temp <- outcomes %>%
   group_by(event_bucket, `last event's results`) %>%
   summarize(n = sum(n)) %>%
   tidyr::spread(`last event's results`, n) %>%
   df_to_tbl
-temp %>% format_table %>% knitr::kable()
+temp %>% format_table
 # temp %>% bcda_battery %>% format_bcda_battery
 ```
 
@@ -105,80 +98,6 @@ temp %>% format_table %>% knitr::kable()
 |95% C.I. for Difference    |(0.064,&nbsp;0.091) |Probability of getting nonzero results goes up by 6.4%-9.1% in the suggester group.|
 |95% C.I. for Relative Risk |(1.082,&nbsp;1.120) |Suggester group is 1.1-1.2 times more likely to get nonzero results!|
 |95% C.I. for Odds Ratio    |(1.531,&nbsp;1.846) |Odds of suggester group getting nonzero results are 1.5-1.8 times those of controls!|
-
-### Zero and Nonzero Results Throughout Search Session
-
-```{r searches_within_outcome_some, fig.width = 12, fig.height = 6}
-outcomes %>%
-  keep_where(outcome == 'some zero & nonzero results') %>%
-  group_by(event_bucket, `last event's results`) %>%
-  summarize(n = sum(n)) %>%
-  group_by(`last event's results`) %>%
-  mutate(prop = n/sum(n)) %>%
-  ggplot(data = ., aes(x = `last event's results`, y = prop, fill = event_bucket)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  scale_y_continuous(name = "Proportion", labels = scales::percent_format()) +
-  geom_text(aes(label = sprintf("%.0f searches (%.1f%%)", n, 100*prop), y = prop + 0.03),
-            position = position_dodge(width = 1)) +
-  ggtitle("Final outcome for sessions with zero and nonzero results throughout the search session") +
-  wmf::theme_fivethirtynine() + theme(rect = element_blank())
-```
-
-```{r some_zero_some_nonzero, as.is = TRUE}
-temp <- outcomes %>%
-  keep_where(outcome == 'some zero & nonzero results') %>%
-  group_by(event_bucket, `last event's results`) %>%
-  summarize(n = sum(n)) %>%
-  tidyr::spread(`last event's results`, n) %>%
-  df_to_tbl %>% flip_rows
-temp %>% format_table %>% knitr::kable()
-# temp %>% bcda_battery %>% format_bcda_battery
-```
-
-Within the search sessions that had both zero results and nonzero results throughout the search session as the user was typing their query:
-
-|&nbsp;                     |&nbsp;              |Comment                          |
-|:--------------------------|:-------------------|:--------------------------------|
-|Bayes Factor               |**VERY** large.|Very strong evidence against hypothesis of independence. |
-|95% C.I. for Difference    |(0.082,&nbsp;0.157) |Probability of ending up with nonzero results goes up by 8.2%-15.7% in the controls.|
-|95% C.I. for Relative Risk |(1.394,&nbsp;1.981) |Control group is 1.4-2.0 times more likely to end up with nonzero results.|
-|95% C.I. for Odds Ratio    |(1.557,&nbsp;2.433) |Odds of controls ending up with nonzero results are 1.6-2.4 times those with suggester.|
-
-### Whole Session (All-Nonzero vs All-Zero Results)
-
-```{r searches_within_outcome_all, fig.width = 8, fig.height = 4}
-outcomes %>%
-  keep_where(outcome != 'some zero & nonzero results') %>%
-  group_by(outcome, event_bucket) %>%
-  summarize(n = sum(n)) %>%
-  group_by(outcome) %>%
-  mutate(prop = n/sum(n)) %>%
-  ggplot(data = ., aes(x = outcome, y = prop, fill = event_bucket)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  scale_y_continuous(name = "Proportion of sessions", labels = scales::percent_format()) +
-  geom_text(aes(y = prop + 0.025, label = sprintf("%.0f (%.1f%%)", n, 100*prop)),
-            position = position_dodge(width = 1)) +
-  ggtitle("Search sessions within outcome") +
-  wmf::theme_fivethirtynine() + theme(rect = element_blank())
-```
-
-```{r all_or_nothing, as.is = TRUE}
-temp <- outcomes %>%
-  keep_where(outcome != 'some zero & nonzero results') %>%
-  group_by(event_bucket, outcome) %>%
-  summarize(n = sum(n)) %>%
-  tidyr::spread(outcome, n) %>%
-  df_to_tbl
-temp %>% format_table %>% knitr::kable()
-# temp %>% bcda_battery %>% format_bcda_battery
-```
-
-|&nbsp;                     |&nbsp;              |Comment                          |
-|:--------------------------|:-------------------|:--------------------------------|
-|Bayes Factor               |**VERY** large.|Very strong evidence against hypothesis of independence. |
-|95% C.I. for Difference    |(0.017,&nbsp;0.038) |Probability of having an all-nonzero-results search session goes up by 2%-4% in the suggester group.|
-|95% C.I. for Relative Risk |(1.019,&nbsp;1.042) |Suggester group is 1.02-1.04 is times more likely to have all-nonzero-results session.|
-|95% C.I. for Odds Ratio    |(1.298,&nbsp;1.769) |Odds of suggester having an all-nonzero-results session are 1.3-1.8 times those of controls.|
 
 ### German Wikipedia vs English Wikipedia
 
@@ -191,16 +110,14 @@ ggprops(users, 'wiki', 'wiki') +
 
 #### German Wikipedia
 
-##### Final Outcome
-
-```{r dewiki_last_bcda_battery, as.is = TRUE}
+```{r dewiki_last_bcda_battery, results = 'asis'}
 temp <- outcomes %>%
   keep_where(wiki == 'German Wikipedia') %>%
   group_by(event_bucket, `last event's results`) %>%
   summarize(n = sum(n)) %>%
   tidyr::spread(`last event's results`, n) %>%
   df_to_tbl
-temp %>% format_table %>% knitr::kable()
+temp %>% format_table
 # temp %>% bcda_battery %>% format_bcda_battery
 ```
 
@@ -211,39 +128,16 @@ temp %>% format_table %>% knitr::kable()
 |95% C.I. for Relative Risk |(1.081,&nbsp;1.158) |The *dewiki* test group is 1.1-1.2 times more likely to get nonzero results than controls.|
 |95% C.I. for Odds Ratio    |(1.516,&nbsp;2.204) |Odds of *dewiki* test group getting nonzero results are 1.5-2.2 times those of controls.|
 
-##### Whole Session
-
-```{r dewiki_all_bcda_battery, as.is = TRUE}
-temp <- outcomes %>%
-  keep_where(wiki == 'German Wikipedia') %>%
-  keep_where(outcome != 'some zero & nonzero results' ) %>%
-  group_by(event_bucket, outcome) %>%
-  summarize(n = sum(n)) %>%
-  tidyr::spread(outcome, n) %>%
-  df_to_tbl
-temp %>% format_table %>% knitr::kable()
-# temp %>% bcda_battery %>% format_bcda_battery
-```
-
-|&nbsp;                     |&nbsp;              |Comment                          |
-|:--------------------------|:-------------------|:--------------------------------|
-|Bayes Factor               |10.878         |Positive evidence against hypothesis of independence. |
-|95% C.I. for Difference    |(0.014,&nbsp;0.054) |Probability of having an all-nonzero-results search session goes up by 1.4%-5.4% in the *dewiki* test group.|
-|95% C.I. for Relative Risk |(1.015,&nbsp;1.059) |The *dewiki* test group is 1.02-1.06 is times more likely to have all-nonzero-results session.|
-|95% C.I. for Odds Ratio    |(1.250,&nbsp;2.367) |Odds of *dewiki* test group having an all-nonzero-results session are 1.3-2.4 times those of controls.|
-
 #### English Wikipedia
 
-##### Final Outcome
-
-```{r enwiki_last_bcda_battery, as.is = TRUE}
+```{r enwiki_last_bcda_battery, results = 'asis'}
 temp <- outcomes %>%
   keep_where(wiki == 'English Wikipedia') %>%
   group_by(event_bucket, `last event's results`) %>%
   summarize(n = sum(n)) %>%
   tidyr::spread(`last event's results`, n) %>%
   df_to_tbl
-temp %>% format_table %>% knitr::kable()
+temp %>% format_table
 # temp %>% bcda_battery %>% format_bcda_battery
 ```
 
@@ -254,28 +148,9 @@ temp %>% format_table %>% knitr::kable()
 |95% C.I. for Relative Risk |(1.074,&nbsp;1.117) |The *enwiki* test group is 1.07-1.12 times more likely to get nonzero results than controls.|
 |95% C.I. for Odds Ratio    |(1.466,&nbsp;1.820) |Odds of *enwiki* test group getting nonzero results are 1.5-1.8 times those of controls.|
 
-##### Whole Session
-
-```{r enwiki_all_bcda_battery, as.is = TRUE}
-temp <- outcomes %>%
-  keep_where(wiki == 'English Wikipedia') %>%
-  keep_where(outcome != 'some zero & nonzero results' ) %>%
-  group_by(event_bucket, outcome) %>%
-  summarize(n = sum(n)) %>%
-  tidyr::spread(outcome, n) %>%
-  df_to_tbl
-temp %>% format_table %>% knitr::kable()
-# temp %>% bcda_battery %>% format_bcda_battery
-```
-
-|&nbsp;                     |&nbsp;              |Comment                          |
-|:--------------------------|:-------------------|:--------------------------------|
-|Bayes Factor               |154.272        |Very strong evidence against hypothesis of independence. |
-|95% C.I. for Difference    |(0.014,&nbsp;0.037) |Probability of having an all-nonzero-results search session goes up by 1.4%-3.7% in the *enwiki* test group.|
-|95% C.I. for Relative Risk |(1.015,&nbsp;1.041) |The *enwiki* test group is 1.02-1.04 is times more likely to have all-nonzero-results session.|
-|95% C.I. for Odds Ratio    |(1.223,&nbsp;1.742) |Odds of *enwiki* test group having an all-nonzero-results session are 1.22-1.74 times those of controls.|
-
 ## Discussion
+
+Based on the evidence presented, it is our strong recommendation that we switch to the new method of search.
 
 ## References
 

@@ -1,3 +1,11 @@
+library(magrittr)
+library(tidyr)
+import::from(dplyr, select, mutate, rename, arrange, group_by, summarize, keep_where = filter)
+library(ggplot2)
+library(wmf)
+library(BCDA)
+library(Kmisc) # for htmlTable()
+
 top_n <- function(x, n = 10) {
   return(names(head(sort(table(x), decreasing = TRUE), n)))
 }
@@ -44,7 +52,7 @@ bcda_battery <- function(x) {
               `Odds Ratio` = BCDA::ci_odds_ratio(x)))
 }
 
-format_bcda_battery <- function(x, comments = rep('', 3)) {
+format_bcda_battery <- function(x, comments = rep('', 3), style = FALSE) {
   format_ci <- function(ci) {
     sprintf("(%.3f,&nbsp;%.3f)", ci[1], ci[2])
   }
@@ -53,6 +61,10 @@ format_bcda_battery <- function(x, comments = rep('', 3)) {
   temp <- rbind(sprintf("%.3f", x[[2]]$`Bayes Factor`), temp)
   rownames(temp) <- c('Bayes Factor', paste("95% C.I. for", names(x)[3:5]))
   temp$Comment = c(x[[2]]$Interpretation, comments)
+  colnames(temp) <- c('&nbsp;', 'Comment')
+  if (style) {
+    return(Kmisc::htmlTable(temp, class = 'bcda'))
+  }
   return(knitr::kable(temp))
 }
 
@@ -63,5 +75,5 @@ format_table <- function(x, units = "") {
     y <- as.table(matrix(sprintf("%.0f (%.1f%%)", addmargins(x), 100*addmargins(BCDA::est_multinom(x))), nrow = nrow(x)+1, ncol = ncol(x)+1))
   }
   dimnames(y) <- lapply(dimnames(x), . %>% c(., "sum"))
-  return(y)
+  return(Kmisc::htmlTable(y, class = 'table table-condensed contingency', align = 'r'))
 }

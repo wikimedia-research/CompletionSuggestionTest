@@ -1,0 +1,115 @@
+### Zero and Nonzero Results Throughout Search Session
+
+```{r searches_within_outcome_some, fig.width = 12, fig.height = 6}
+outcomes %>%
+  keep_where(outcome == 'some zero & nonzero results') %>%
+  group_by(event_bucket, `last event's results`) %>%
+  summarize(n = sum(n)) %>%
+  group_by(`last event's results`) %>%
+  mutate(prop = n/sum(n)) %>%
+  ggplot(data = ., aes(x = `last event's results`, y = prop, fill = event_bucket)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_y_continuous(name = "Proportion", labels = scales::percent_format()) +
+  geom_text(aes(label = sprintf("%.0f searches (%.1f%%)", n, 100*prop), y = prop + 0.03),
+            position = position_dodge(width = 1)) +
+  ggtitle("Final outcome for sessions with zero and nonzero results throughout the search session") +
+  wmf::theme_fivethirtynine() + theme(rect = element_blank())
+```
+
+```{r some_zero_some_nonzero, results = 'asis'}
+temp <- outcomes %>%
+  keep_where(outcome == 'some zero & nonzero results') %>%
+  group_by(event_bucket, `last event's results`) %>%
+  summarize(n = sum(n)) %>%
+  tidyr::spread(`last event's results`, n) %>%
+  df_to_tbl %>% flip_rows
+temp %>% format_table
+# temp %>% bcda_battery %>% format_bcda_battery
+```
+
+Within the search sessions that had both zero results and nonzero results throughout the search session as the user was typing their query:
+
+|&nbsp;                     |&nbsp;              |Comment                          |
+|:--------------------------|:-------------------|:--------------------------------|
+|Bayes Factor               |**VERY** large.|Very strong evidence against hypothesis of independence. |
+|95% C.I. for Difference    |(0.082,&nbsp;0.157) |Probability of ending up with nonzero results goes up by 8.2%-15.7% in the controls.|
+|95% C.I. for Relative Risk |(1.394,&nbsp;1.981) |Control group is 1.4-2.0 times more likely to end up with nonzero results.|
+|95% C.I. for Odds Ratio    |(1.557,&nbsp;2.433) |Odds of controls ending up with nonzero results are 1.6-2.4 times those with suggester.|
+
+### Whole Session (All-Nonzero vs All-Zero Results)
+
+```{r searches_within_outcome_all, fig.width = 8, fig.height = 4}
+outcomes %>%
+  keep_where(outcome != 'some zero & nonzero results') %>%
+  group_by(outcome, event_bucket) %>%
+  summarize(n = sum(n)) %>%
+  group_by(outcome) %>%
+  mutate(prop = n/sum(n)) %>%
+  ggplot(data = ., aes(x = outcome, y = prop, fill = event_bucket)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_y_continuous(name = "Proportion of sessions", labels = scales::percent_format()) +
+  geom_text(aes(y = prop + 0.025, label = sprintf("%.0f (%.1f%%)", n, 100*prop)),
+            position = position_dodge(width = 1)) +
+  ggtitle("Search sessions within outcome") +
+  wmf::theme_fivethirtynine() + theme(rect = element_blank())
+```
+
+```{r all_or_nothing, results = 'asis'}
+temp <- outcomes %>%
+  keep_where(outcome != 'some zero & nonzero results') %>%
+  group_by(event_bucket, outcome) %>%
+  summarize(n = sum(n)) %>%
+  tidyr::spread(outcome, n) %>%
+  df_to_tbl
+temp %>% format_table
+# temp %>% bcda_battery %>% format_bcda_battery
+```
+
+|&nbsp;                     |&nbsp;              |Comment                          |
+|:--------------------------|:-------------------|:--------------------------------|
+|Bayes Factor               |**VERY** large.|Very strong evidence against hypothesis of independence. |
+|95% C.I. for Difference    |(0.017,&nbsp;0.038) |Probability of having an all-nonzero-results search session goes up by 2%-4% in the suggester group.|
+|95% C.I. for Relative Risk |(1.019,&nbsp;1.042) |Suggester group is 1.02-1.04 is times more likely to have all-nonzero-results session.|
+|95% C.I. for Odds Ratio    |(1.298,&nbsp;1.769) |Odds of suggester having an all-nonzero-results session are 1.3-1.8 times those of controls.|
+
+##### Whole Session
+
+```{r dewiki_all_bcda_battery, results = 'asis'}
+temp <- outcomes %>%
+  keep_where(wiki == 'German Wikipedia') %>%
+  keep_where(outcome != 'some zero & nonzero results' ) %>%
+  group_by(event_bucket, outcome) %>%
+  summarize(n = sum(n)) %>%
+  tidyr::spread(outcome, n) %>%
+  df_to_tbl
+temp %>% format_table
+# temp %>% bcda_battery %>% format_bcda_battery
+```
+
+|&nbsp;                     |&nbsp;              |Comment                          |
+|:--------------------------|:-------------------|:--------------------------------|
+|Bayes Factor               |10.878         |Positive evidence against hypothesis of independence. |
+|95% C.I. for Difference    |(0.014,&nbsp;0.054) |Probability of having an all-nonzero-results search session goes up by 1.4%-5.4% in the *dewiki* test group.|
+|95% C.I. for Relative Risk |(1.015,&nbsp;1.059) |The *dewiki* test group is 1.02-1.06 is times more likely to have all-nonzero-results session.|
+|95% C.I. for Odds Ratio    |(1.250,&nbsp;2.367) |Odds of *dewiki* test group having an all-nonzero-results session are 1.3-2.4 times those of controls.|
+
+##### Whole Session
+
+```{r enwiki_all_bcda_battery, results = 'asis'}
+temp <- outcomes %>%
+  keep_where(wiki == 'English Wikipedia') %>%
+  keep_where(outcome != 'some zero & nonzero results' ) %>%
+  group_by(event_bucket, outcome) %>%
+  summarize(n = sum(n)) %>%
+  tidyr::spread(outcome, n) %>%
+  df_to_tbl
+temp %>% format_table
+# temp %>% bcda_battery %>% format_bcda_battery
+```
+
+|&nbsp;                     |&nbsp;              |Comment                          |
+|:--------------------------|:-------------------|:--------------------------------|
+|Bayes Factor               |154.272        |Very strong evidence against hypothesis of independence. |
+|95% C.I. for Difference    |(0.014,&nbsp;0.037) |Probability of having an all-nonzero-results search session goes up by 1.4%-3.7% in the *enwiki* test group.|
+|95% C.I. for Relative Risk |(1.015,&nbsp;1.041) |The *enwiki* test group is 1.02-1.04 is times more likely to have all-nonzero-results session.|
+|95% C.I. for Odds Ratio    |(1.223,&nbsp;1.742) |Odds of *enwiki* test group having an all-nonzero-results session are 1.22-1.74 times those of controls.|
